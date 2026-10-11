@@ -7,7 +7,7 @@
  * 小组件的请求走 Egern 当前分流，看到的就是所选节点的出口 IP。
  *
  * Env:
- *   REFRESH_MINUTES   刷新间隔（分钟），10 ~ 720，默认 30
+ *   REFRESH_MINUTES   刷新间隔（分钟），5 ~ 720，默认 5
  */
 
 const V4_API = 'https://api.ipify.org?format=json';
@@ -17,7 +17,7 @@ const TIMEOUT = 10000;
 
 function refreshAfter(ctx) {
   const v = Number(ctx.env && ctx.env.REFRESH_MINUTES);
-  const min = Number.isFinite(v) ? Math.min(720, Math.max(10, v)) : 30;
+  const min = Number.isFinite(v) ? Math.min(720, Math.max(5, v)) : 5;
   return new Date(Date.now() + min * 60000).toISOString();
 }
 
