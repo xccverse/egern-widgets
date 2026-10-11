@@ -12,7 +12,6 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 | 无聊按钮 | `boredom/` | 内置点子库，可自定义（纯本地，无需网络） |
 | 每日古诗 | `poem/` | 今日诗词（免费、无需 key） |
 | Spotify 三合一 | `spotify/` | 去广告 + 解锁 Premium（部分）+ DualSubs 双语歌词 |
-| 节点 IP 检测 | `ip/` | ipify（免费、无需 key），看当前出口是 v4 还是 v6 |
 
 ## 安装（小组件通用）
 
@@ -26,7 +25,6 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
    https://raw.githubusercontent.com/xccverse/egern-widgets/main/telecom/china-telecom.yaml
    https://raw.githubusercontent.com/xccverse/egern-widgets/main/boredom/boredom-widget.yaml
    https://raw.githubusercontent.com/xccverse/egern-widgets/main/poem/poem-widget.yaml
-   https://raw.githubusercontent.com/xccverse/egern-widgets/main/ip/ip-widget.yaml
    ```
 
    代理类模块（非小组件）：
@@ -216,30 +214,8 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 2. Egern 必须安装并信任 MITM 证书，模块启用后把 Spotify 从后台划掉重开。
 3. 歌词想换配置（繁体 / 换翻译源等）去设置面板：https://dualsubs.github.io/settings/
 
-## 节点 IP 检测
-
-实时显示 Egern 当前出口是 IPv4 还是 IPv6，并显示出口 IP 地址。
-
-原理：同时请求 `api.ipify.org`（仅 IPv4 解析）和 `api6.ipify.org`（仅 IPv6 解析）—— v6 能通即节点支持 IPv6。双栈节点会同时显示两个地址并标注"双栈"。
-
-### Env 配置
-
-| 变量 | 必填 | 说明 |
-|---|---|---|
-| `REFRESH_MINUTES` | 否 | 刷新间隔（分钟），5 ~ 720，默认 5 |
-
-### 小组件尺寸
-
-- **小尺寸**：协议类型 + 出口 IP
-- **中尺寸**：协议类型 + v4 / v6 地址
-- **大尺寸**：再加说明文字
-- **锁屏**：显示 v4 / v6
-
-深浅模式自动适配。断网时用上次缓存顶着，并标注"缓存"。
 
 ## 常见问题
-
-- **节点 IP 检测显示的是哪个 IP**：小组件的请求走 Egern 当前分流，显示的是你所选节点的实际出口 IP，不是本机直连 IP。v6 能通即节点支持 IPv6；双栈节点会同时显示 v4 和 v6 两个地址。
 
 - **Komari 显示"等待面板地址"**：`KOMARI_URL` 没填或填错了，去模块 Env 里检查。
 - **Komari 报错 400 / 请求地址不对**：八成是把脚本的 raw 链接填进了 `KOMARI_URL`，或者地址后面多加了路径。只填面板根地址。
