@@ -1,11 +1,12 @@
 name: Spotify 去广告+解锁
-description: 去广告（弹窗/首页/搜索页/信息流/AI DJ/埋点上报）+ 解锁 Premium（部分功能；超高音质除外）。需开启 MITM 并信任证书，建议登录后再启用，重启 Spotify 等待生效。解锁移植自 app2smile，去广告与新版 proto 整合自 Amlabort。
+description: 去广告（弹窗/首页/搜索页/信息流/AI DJ/埋点上报）+ 解锁 Premium（部分功能；超高音质除外）+ 歌词翻译（外语歌词译为简体中文，双语显示）。需开启 MITM 并信任证书，建议登录后再启用，重启 Spotify 等待生效。解锁移植自 app2smile，去广告与新版 proto 整合自 Amlabort，歌词翻译整合自 VirgilClyne（可莉插件中心 Spotify歌词增强）。
 mitm:
   hostnames:
     includes:
       - spclient.wg.spotify.com
       - '*.spclient.spotify.com'
       - aet.spotify.com
+      - api.spotify.com
 header_rewrites:
 - delete:
     match: '^https://(spclient\.wg\.spotify\.com|.+-spclient\.spotify\.com)/user-customization-service/v1/customize$'
@@ -58,4 +59,39 @@ scriptings:
     name: Spotify-去信息流广告
     match: '^https://(spclient\.wg\.spotify\.com|.+-spclient\.spotify\.com)/scrollsita/v./scroll/spotify'
     script_url: https://raw.githubusercontent.com/xccverse/egern-widgets/main/spotify/spot-no-scroll-ad.js
+    body_required: true
+# ---------- 歌词翻译：外语歌词译为简体中文，双语显示（VirgilClyne/可莉插件中心） ----------
+# 脚本引用作者原站 kelee.one（其站点声明禁止二次分发，故不转存）。JSON/Proto 用互斥写法，还原 Loon 按序优先匹配语义。
+- http_response:
+    name: Spotify-歌词·歌曲信息跟踪
+    match: '^https://api\.spotify\.com/v1/tracks\?'
+    script_url: https://kelee.one/Resource/JavaScript/Spotify/Spotify_response.js
+    body_required: true
+- http_request:
+    name: Spotify-歌词·请求改写(JSON)
+    match: '^https://spclient\.wg\.spotify\.com/color-lyrics/v2/track/.+\?.*format=json'
+    script_url: https://kelee.one/Resource/JavaScript/Spotify/Spotify_request.js
+- http_request:
+    name: Spotify-歌词·请求改写(Proto)
+    match: '^https://spclient\.wg\.spotify\.com/color-lyrics/v2/track/\w+\?(?!.*format=json)'
+    script_url: https://kelee.one/Resource/JavaScript/Spotify/Spotify_request.js
+- http_response:
+    name: Spotify-歌词·翻译响应(JSON)
+    match: '^https://spclient\.wg\.spotify\.com/color-lyrics/v2/track/.+\?.*format=json.*subtype=Translate'
+    script_url: https://kelee.one/Resource/JavaScript/Spotify/Translate_response.js
+    body_required: true
+- http_response:
+    name: Spotify-歌词·翻译响应(Proto)
+    match: '^https://spclient\.wg\.spotify\.com/color-lyrics/v2/track/\w+\?(?!.*format=json).*subtype=Translate'
+    script_url: https://kelee.one/Resource/JavaScript/Spotify/Translate_response.js
+    body_required: true
+- http_response:
+    name: Spotify-歌词·外部歌词响应(JSON)
+    match: '^https://spclient\.wg\.spotify\.com/color-lyrics/v2/track/.+\?.*format=json.*subtype=External'
+    script_url: https://kelee.one/Resource/JavaScript/Spotify/External_Lyrics_response.js
+    body_required: true
+- http_response:
+    name: Spotify-歌词·外部歌词响应(Proto)
+    match: '^https://spclient\.wg\.spotify\.com/color-lyrics/v2/track/\w+\?(?!.*format=json).*subtype=External'
+    script_url: https://kelee.one/Resource/JavaScript/Spotify/External_Lyrics_response.js
     body_required: true
