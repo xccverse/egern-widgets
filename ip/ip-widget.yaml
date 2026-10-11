@@ -3,8 +3,8 @@ description: 实时显示 Egern 当前出口是 IPv4 还是 IPv6，并显示出�
 env_schema:
   REFRESH_MINUTES:
     name: 刷新间隔（分钟）
-    description: 范围 10 ~ 720，默认 30
-    default_value: '30'
+    description: 范围 5 ~ 720，默认 5
+    default_value: '5'
 scriptings:
 - generic:
     name: 节点 IP 检测
