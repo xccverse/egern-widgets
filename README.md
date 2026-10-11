@@ -9,17 +9,28 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 | 天气 | `weather/` | Open-Meteo（免费、无需 key） |
 | 机场流量 | `airport/` | 机场订阅链接的 `subscription-userinfo` 响应头 |
 | 中国电信 | `telecom/` | 电信手机营业厅（需登录 cookie） |
+| 无聊按钮 | `boredom/` | 内置点子库，可自定义（纯本地，无需网络） |
+| 每日古诗 | `poem/` | 今日诗词（免费、无需 key） |
+| Spotify 三合一 | `spotify/` | 去广告 + 解锁 Premium（部分）+ DualSubs 双语歌词 |
 
 ## 安装（小组件通用）
 
 1. 打开 Egern → **模块** → 右上角 **＋** → 粘贴下面对应小组件的 YAML 链接 → 启用：
 
    ```
-   https://raw.githubusercontent.com/120729304/egern-widgets/main/komari/komari-widget.yaml
-   https://raw.githubusercontent.com/120729304/egern-widgets/main/traffic/traffic-widget.yaml
-   https://raw.githubusercontent.com/120729304/egern-widgets/main/weather/weather-widget.yaml
-   https://raw.githubusercontent.com/120729304/egern-widgets/main/airport/airport-widget.yaml
-   https://raw.githubusercontent.com/120729304/egern-widgets/main/telecom/china-telecom.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/komari/komari-widget.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/traffic/traffic-widget.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/weather/weather-widget.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/airport/airport-widget.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/telecom/china-telecom.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/boredom/boredom-widget.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/poem/poem-widget.yaml
+   ```
+
+   代理类模块（非小组件）：
+
+   ```
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/spotify/spotify.yaml
    ```
 
 2. 在模块的 **Env** 里按需改配置（见下表），其他保持默认即可。
@@ -138,7 +149,9 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 
 原脚本来自 SIJULY/egern-radar（移植自 Scriptable 版 ChinaTelecom_2024），改版点：语音的显示不再跟着流量开关走，`CT_SHOW_USED_VOICE` 独立控制，默认显示剩余语音。
 
-登录方式二选一：填抓包得到的 `CT_LOGIN_URL`（小组件会自动更新 cookie，优先）或直接填 `CT_COOKIE`。
+登录方式：模块自带登录捕获——Egern 里装好模块、开着 VPN 去 Safari 登录一次 e.dlife.cn，cookie 会自动抓取保存，全程不用手动填。也可以手动二选一：填抓包得到的 `CT_LOGIN_URL`（小组件会自动更新 cookie，优先）或直接填 `CT_COOKIE`。
+
+标题前有状态灯：🟢 登录有效 / 🔴 登录失效（点小组件直接跳登录页重登）/ ⚪ 灰色表示用的缓存、状态未知。
 
 ### Env 配置
 
@@ -150,6 +163,56 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 | `CT_SHOW_USED_VOICE` | 否 | 填 `true` 显示已用语音，不填显示剩余语音（不受上一项影响） |
 | `CT_SHOW_DIRECT` | 否 | 定向卡显示：`false` 隐藏定向卡（3卡模式），`true` 强制4卡，不填自动判断 |
 | `CT_TITLE` | 否 | 小组件标题，默认 `中国电信` |
+| `CT_KEEPALIVE` | 否 | 填 `false` 关闭定时保活；默认开启，每 20 分钟自动请求一次接口续 session，避免 cookie 过期 |
+
+定时保活是模块的 schedule 配置，生效需要**删掉 Egern 里旧的中国电信模块，用更新后的 YAML 重新添加一次**（只覆盖 JS 不行）。
+
+## 无聊按钮
+
+不知道干啥时看它：按时段（深夜 / 早晨 / 白天 / 晚上）随机推荐一个打发时间的主意，每次刷新换一个，不会连续重复。
+
+### Env 配置
+
+| 变量 | 必填 | 说明 |
+|---|---|---|
+| `REFRESH_MINUTES` | 否 | 刷新间隔（分钟），10 ~ 180，默认 30 |
+| `CUSTOM_IDEAS` | 否 | 自定义点子，每行一个，格式"emoji 文案"，如 `🎮 打一局星露谷` |
+
+### 小组件尺寸
+
+- **大 / 中 / 小 / 锁屏**：四种尺寸都支持，大尺寸字更大
+
+## 每日古诗
+
+每天一首古诗：用今日诗词免费接口，每次刷新随机换一首，显示诗句 + 作者 + 出处，断网时用缓存顶着。
+
+### Env 配置
+
+| 变量 | 必填 | 说明 |
+|---|---|---|
+| `REFRESH_MINUTES` | 否 | 刷新间隔（分钟），10 ~ 720，默认 120 |
+
+### 小组件尺寸
+
+- **大尺寸**：一次显示两首
+- **中 / 小尺寸**：一首
+- **锁屏**：三种尺寸都支持
+
+深浅模式自动适配。
+
+## Spotify 三合一
+
+不是小组件，是代理模块：去广告 + 解锁 Premium（部分功能）+ DualSubs 双语歌词。
+
+- **去广告**：拦截弹窗广告、首页 / 搜索页 / 信息流广告位、AI DJ、广告统计上报
+- **解锁**：去除播放广告、正常展示歌手 / 专辑列表、去除随机播放限制（超高音质不支持，原规则只承诺部分解锁）
+- **双语歌词**：外语歌词自动译为简体中文，译文显示在原文下面（DualSubs v1.10.0，默认 Google 翻译 + 网易云歌词源）
+
+使用步骤：
+
+1. 先登录 Spotify，再启用模块（已登录可跳过）。
+2. Egern 必须安装并信任 MITM 证书，模块启用后把 Spotify 从后台划掉重开。
+3. 歌词想换配置（繁体 / 换翻译源等）去设置面板：https://dualsubs.github.io/settings/
 
 ## 常见问题
 
@@ -161,9 +224,12 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 - **天气城市搜出来不对**：Env 里用 "城市,省份" 或直接填经纬度，最稳。
 - **中国电信小组件报 `Unexpected token '<'`**：脚本 URL 填成了 `github.com/.../blob/...` 的网页地址，把它换成上面 telecom 目录的 **raw** 链接。
 - **改了 Env 配置后显示的还是旧数据**：标题旁写着"缓存 XX:XX"说明现在显示的是旧缓存。确认脚本 URL 是新版 raw 链接后，用 Safari 重新登录一次电信（cookie 过期会导致拉取失败、一直用缓存），再刷新小组件，缓存标记消失即生效。
+- **加了电信定时保活但没生效**：保活是 YAML 模块的 schedule 配置，删掉 Egern 里旧的中国电信模块、用新版 YAML 重新添加一次才会生效。
 
 ## 要求
 
 - Komari 小组件 / 流量圆环：Komari 面板（API 公开可访问即可，无需登录）
 - 天气 / 机场流量：无需注册、无需 key
-- 中国电信：需要中国电信手机号的登录 cookie
+- 中国电信：需要中国电信手机号的登录 cookie（模块自带登录捕获，Safari 登录一次自动抓）
+- 无聊按钮 / 每日古诗：无需注册、无需 key（古诗需要网络拉取）
+- Spotify：需要 Spotify 账号登录 + Egern 安装并信任 MITM 证书
