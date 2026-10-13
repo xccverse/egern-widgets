@@ -17,7 +17,7 @@ env_schema:
     default_value: ''
   SGCC_ACCOUNT:
     name: 户号（可选）
-    description: 多户号时填要显示的户号后 4 位；留空显示第一个。想同时显示多个户号就多添加几个小组件，每个填不同的户号后 4 位
+    description: 多户号时填要显示的户号后 4 位；填 all 则一个小组件同屏显示全部户号；留空显示第一个
     default_value: ''
   SGCC_TIERS:
     name: 阶梯分界（可选）
