@@ -29,6 +29,10 @@ env_schema:
     name: 定时保活
     description: 每 20 分钟自动拉取一次，保持登录态不掉线；填 false 关闭
     default_value: ''
+  CT_EXPIRE_WARN_DAYS:
+    name: 过期预警天数
+    description: 登录超过此天数未刷新时提前通知，默认 5 天；填 0 关闭预警
+    default_value: ''
 mitm:
   hostnames:
     includes:
