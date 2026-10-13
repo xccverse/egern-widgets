@@ -508,11 +508,89 @@ async function runSgcc(ctx, username, password) {
 function pickAccount(list, want) {
   if (!Array.isArray(list) || !list.length) return null;
   const w = clean(want);
-  if (w) {
+  if (w && !/^all$/i.test(w)) {
     const hit = list.find((x) => { const u = x.userInfo || {}; return [u.consNo_dst, u.consNo, u.consNoSrc].some((v) => clean(v).endsWith(w)); });
     if (hit) return hit;
   }
   return list[0];
+}
+
+// 多户号模式：SGCC_ACCOUNT填all时返回全部户号
+function pickAccounts(list, want) {
+  if (!Array.isArray(list) || !list.length) return [];
+  if (/^all$/i.test(clean(want))) return list;
+  const one = pickAccount(list, want);
+  return one ? [one] : [];
+}
+
+function accLabel(p) {
+  const tail = p.consNo ? p.consNo.replace(/\D/g, '').slice(-4) : '';
+  return p.name || (tail ? `尾号${tail}` : '户号');
+}
+
+function buildMultiSmall(pList, r) {
+  const e = errLine(r);
+  const rows = pList.slice(0, 4).map((p) => {
+    const c = balColor(p);
+    return row([
+      T(accLabel(p), 11, C.text, 'medium', { maxLines: 1 }),
+      spacer(),
+      T(`${p.owe ? '欠' : ''}¥${money(p.balance)}`, 13, c, 'bold'),
+    ], { gap: 4, height: 22 });
+  });
+  return {
+    type: 'widget', padding: 12, gap: 5, backgroundGradient: bg(),
+    children: [
+      header(pList[0], r.cache.ts, true),
+      ...rows,
+      spacer(),
+      e || T(`${pList.length} 个户号 · 昨日共 ${fmt(pList.reduce((a, p) => a + (Number.isFinite(p.yesterday) ? p.yesterday : 0), 0))} 度`, 8, C.faint),
+    ],
+  };
+}
+
+function buildMultiMedium(pList, r) {
+  const e = errLine(r);
+  const rows = pList.slice(0, 4).map((p) => {
+    const c = balColor(p);
+    return glass([
+      row([
+        col([T(accLabel(p), 11, C.text, 'semibold', { maxLines: 1 }), T(`昨日 ${fmt(p.yesterday)} 度 · 本月 ${fmt(p.monthUse)} 度`, 8, C.faint, 'regular', { maxLines: 1 })], { gap: 1, flex: 1 }),
+        col([T(`${p.owe ? '欠' : ''}¥${money(p.balance)}`, 14, c, 'bold'), ...(p.tier ? [T(tierText(p, true), 8, tierColor(p), 'semibold')] : [])], { alignItems: 'end', gap: 0 }),
+      ], { gap: 4 }),
+    ], { padding: [6, 9], borderRadius: 12 });
+  });
+  return {
+    type: 'widget', padding: 12, gap: 6, backgroundGradient: bg(),
+    children: [
+      header(pList[0], r.cache.ts, false),
+      ...rows,
+      e || spacer(),
+    ],
+  };
+}
+
+function buildMultiLarge(pList, r) {
+  const e = errLine(r);
+  const cards = pList.slice(0, 6).map((p) => {
+    const lm = p.lastMonth;
+    return glass([
+      row([T(accLabel(p), 12, C.text, 'bold', { maxLines: 1 }), spacer(), ...(p.tier ? [T(tierText(p, true), 9, tierColor(p), 'semibold')] : [])], { gap: 4 }),
+      row([
+        statCell('yensign.circle.fill', balColor(p), p.owe ? '欠费' : '余额', money(p.balance), '', p.billDate ? `截至 ${p.billDate}` : '', null, 52),
+        statCell('sun.max.fill', C.warn, '昨日', fmt(p.yesterday), '度', mmdd(p.yesterdayKey), null, 52),
+        statCell('calendar', C.blue, '本月', fmt(p.monthUse), '度', lm ? `上月 ${fmt(lm.v, 0)} 度` : '', null, 52),
+      ], { gap: 5, height: 52 }),
+    ], { gap: 4, padding: [8, 10], borderRadius: 14 });
+  });
+  return {
+    type: 'widget', padding: 12, gap: 7, backgroundGradient: bg(),
+    children: [
+      header(pList[0], r.cache.ts, false),
+      ...cards,
+      e || row([T(`${pList.length} 个户号`, 8, C.faint), spacer(), T(updText(r.cache.ts), 8, C.faint)], { gap: 3 }),
+    ],
+  };
 }
 
 function dayKey(s) {
@@ -928,8 +1006,18 @@ export default async function (ctx) {
   const r = await getData(ctx, false);
   if (!r.configured) return message('还没填写账号', '到 Egern「工具 → 模块 → 网上国网」里填写网上国网的手机号和密码，保存后刷新小组件。');
   if (!r.cache || !r.cache.list) return message('暂时取不到数据', r.error || '请稍后刷新', null);
-  const acc = pickAccount(r.cache.list, env.SGCC_ACCOUNT);
-  if (!acc) return message('没有绑定户号', '请先在网上国网 App 里绑定用电户号。', r.cache.ts);
+  const isAll = /^all$/i.test(clean(env.SGCC_ACCOUNT));
+  const accList = pickAccounts(r.cache.list, env.SGCC_ACCOUNT);
+  if (!accList.length) return message('没有绑定户号', '请先在网上国网 App 里绑定用电户号。', r.cache.ts);
+  // 多户号同屏：SGCC_ACCOUNT填all
+  if (isAll && accList.length > 1) {
+    const pList = accList.map((a) => parse(a, env));
+    if (family.startsWith('accessory')) return buildLock(pList[0], r, family);
+    if (family === 'systemSmall') return buildMultiSmall(pList, r);
+    if (family === 'systemMedium') return buildMultiMedium(pList, r);
+    return buildMultiLarge(pList, r);
+  }
+  const acc = accList[0];
   const p = parse(acc, env);
   if (family.startsWith('accessory')) return buildLock(p, r, family);
   if (family === 'systemSmall') return buildSmall(p, r);
