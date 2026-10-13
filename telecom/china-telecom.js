@@ -8,6 +8,8 @@
  *      存入存储，小组件下次运行自动读取登录，全程无需手动复制粘贴。
  *
  * 环境变量（在模块/小组件的 Env 中配置）：
+ *   CT_USERNAME             电信手机号（App 接口登录用，推荐方式，自动重登永不过期）
+ *   CT_PASSWORD             电信服务密码（6位数字，与 CT_USERNAME 配合使用）
  *   CT_LOGIN_URL            电信登录地址（抓包得到的登录 URL，用于自动更新 cookie）
  *   CT_COOKIE               直接填写 cookie（与 CT_LOGIN_URL 二选一，URL 优先）
  *   CT_SHOW_USED_FLOW       'true' 显示已用流量，否则显示剩余流量
@@ -15,8 +17,12 @@
  *   CT_SHOW_DIRECT          'false' 隐藏定向卡（3卡模式）；'true' 强制4卡；不填则自动判断
  *   CT_TITLE                小组件标题，默认 "中国电信"
  *
- * 数据来源：https://e.dlife.cn/user/package_detail.do
- *           https://e.dlife.cn/user/balance.do
+ * 数据来源（App 接口优先）：
+ *   登录：https://appgologin.189.cn:9031/login/client/userLoginNormal
+ *   数据：https://appfuwu.189.cn:9021/query/qryImportantData
+ * 备用（网页接口）：https://e.dlife.cn/user/package_detail.do
+ *                   https://e.dlife.cn/user/balance.do
+ * App 接口协议参考 Cp0204/ChinaTelecomMonitor（MIT）
  */
 
 const URLS = {
@@ -523,6 +529,10 @@ async function handleCapture(ctx) {
   const cookie = String(getReqCookie(req.headers) || '').trim();
   if (!cookie || ctx.storage.get('ct_cookie') === cookie) return;
   ctx.storage.set('ct_cookie', cookie);
+  // 记录 cookie 获取时间，用于过期预警
+  ctx.storage.set('ct_cookie_ts', String(Date.now()));
+  // 新 cookie 到手，清除之前的过期预警标记
+  ctx.storage.delete('ct_expire_warned');
 
   // 只有"刚登录过"才打扰用户（成功信号）；后台静默续期不通知
   const ts = Number(ctx.storage.get('ct_login_ts') || 0);
@@ -570,6 +580,25 @@ async function handleWidget(ctx) {
 
 /* ---------- 入口：单文件双模式 ---------- */
 
+// 过期预警：cookie 快到期时提前通知，避免突然变红点
+function checkExpireWarn(ctx) {
+  try {
+    if (ctx.storage.get('ct_expire_warned')) return; // 每个 cookie 只预警一次
+    const ts = Number(ctx.storage.get('ct_cookie_ts') || 0);
+    if (!ts) return;
+    const warnDays = parseFloat(ctx.env?.CT_EXPIRE_WARN_DAYS) || 5;
+    const ageDays = (Date.now() - ts) / 86400000;
+    if (ageDays >= warnDays) {
+      ctx.storage.set('ct_expire_warned', '1');
+      ctx.notify({
+        title: '中国电信',
+        body: `登录已 ${Math.floor(ageDays)} 天未刷新，可能快过期了，点我去重新登录`,
+        action: { type: 'url', url: URLS.login },
+      });
+    }
+  } catch (_) {}
+}
+
 export default async function (ctx) {
   // request 脚本条目 → 捕获登录；generic 脚本条目 → 渲染小组件
   //（ctx.request 仅在 request/response 脚本中可用）
@@ -583,7 +612,9 @@ export default async function (ctx) {
     try {
       await loadData(ctx);
     } catch (_) {}
+    checkExpireWarn(ctx);
     return { type: 'text', text: 'keepalive done' };
   }
+  checkExpireWarn(ctx);
   return handleWidget(ctx);
 }
