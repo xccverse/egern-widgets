@@ -231,6 +231,16 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 
 深浅模式自动适配。
 
+### Scriptable 版
+
+另有 Scriptable 移植版（`sgcc/sgcc-scriptable.js`），功能与 Egern 版一致。用法：Scriptable 里新建脚本，把文件内容粘贴进去，小组件参数填 JSON：
+
+```
+{"username":"138xxxxxxxx","password":"你的密码","account":"all","tiers":"2160,4200","prices":"0.5469,0.5969,0.8469"}
+```
+
+首次新设备登录需短信验证时，在 Scriptable App 内运行一次，会自动弹窗让你输入验证码。
+
 ## Spotify 三合一
 
 不是小组件，是代理模块：去广告 + 解锁 Premium（部分功能）+ DualSubs 双语歌词。
