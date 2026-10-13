@@ -570,9 +570,23 @@ function buildMultiMedium(pList, r) {
   };
 }
 
-function buildMultiLarge(pList, r) {
+function buildMultiLarge(pList, r, env) {
   const e = errLine(r);
-  const cards = pList.slice(0, 6).map((p) => {
+  // SGCC_FOCUS 指定哪家显示完整详情（含曲线图），默认第一家
+  const focusWant = clean((env || {}).SGCC_FOCUS);
+  let focusIdx = 0;
+  if (focusWant) {
+    const fi = pList.findIndex((p) => clean(p.consNo).endsWith(focusWant));
+    if (fi >= 0) focusIdx = fi;
+  }
+  const focus = pList[focusIdx];
+  const others = pList.filter((_, i) => i !== focusIdx);
+
+  // 焦点户号的完整详情（含 30 天曲线和月度柱状图）
+  const detailChildren = buildLargeSections(focus, r);
+
+  // 其他户号紧凑卡片
+  const cards = others.slice(0, 5).map((p) => {
     const lm = p.lastMonth;
     return glass([
       row([T(accLabel(p), 12, C.text, 'bold', { maxLines: 1 }), spacer(), ...(p.tier ? [T(tierText(p, true), 9, tierColor(p), 'semibold')] : [])], { gap: 4 }),
@@ -586,11 +600,45 @@ function buildMultiLarge(pList, r) {
   return {
     type: 'widget', padding: 12, gap: 7, backgroundGradient: bg(),
     children: [
-      header(pList[0], r.cache.ts, false),
+      header(focus, r.cache.ts, false),
+      ...detailChildren,
       ...cards,
       e || row([T(`${pList.length} 个户号`, 8, C.faint), spacer(), T(updText(r.cache.ts), 8, C.faint)], { gap: 3 }),
     ],
   };
+}
+
+// 大尺寸完整详情的公共部分（余额+统计+30天曲线+月度柱状图），供单户和多户焦点复用
+function buildLargeSections(p, r) {
+  const list = p.daily.slice(-30);
+  const vals = list.map((x) => x.v);
+  const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : NaN;
+  const peak = vals.length ? Math.max(...vals) : NaN;
+  const mv = monthBars(p);
+  const lm = p.lastMonth;
+  return [
+    row([
+      glass([balanceBlock(p, 28)], { padding: [8, 10], borderRadius: 14, flex: 1, height: 110, justifyContent: 'center' }),
+      col([
+        row([statCell('sun.max.fill', C.warn, '昨日', fmt(p.yesterday), '度', mmdd(p.yesterdayKey), null, 52),
+          statCell('calendar', C.blue, '本月', fmt(p.monthUse), '度', tierText(p), tierColor(p), 52)], { gap: 6, height: 52 }),
+        row([statCell('clock.arrow.circlepath', '#BF5AF2', '上月', fmt(lm ? lm.v : NaN, 0), '度', lm && Number.isFinite(lm.cost) ? `¥${money(lm.cost)}` : '', null, 52),
+          statCell('chart.bar.fill', C.teal, '今年', fmt(p.yearUse, 0), '度', Number.isFinite(p.yearCost) ? `¥${money(p.yearCost)}` : '', null, 52)], { gap: 6, height: 52 }),
+      ], { gap: 6, flex: 1.6 }),
+    ], { gap: 6, height: 110 }),
+    glass([
+      row([icon('chart.bar.xaxis', C.brand, 10), T(`近${list.length || 30}日用电 · ${accLabel(p)}`, 10, C.text, 'semibold'), T(rangeText(list), 8, C.faint), spacer(),
+        T(`日均 ${fmt(avg)}`, 9, C.dim), legend(`峰值 ${fmt(peak)}`)], { gap: 4 }),
+      { type: 'image', src: barsSvg(vals, CW, 46), width: CW, height: 46 },
+      (() => { const d = dayLabels(list); return axisRow(d.labels, CW, { vals, weekend: d.weekend, strong: d.strong, size: 6 }); })(),
+    ], { gap: 4, padding: [8, 10], borderRadius: 14 }),
+    glass([
+      row([icon('calendar.badge.clock', '#BF5AF2', 10), T(`${new Date().getFullYear()} 年月度用电 · ${accLabel(p)}`, 10, C.text, 'semibold'), spacer(),
+        T(mv.length ? `共 ${mv.length} 个月` : '暂无', 9, C.dim)], { gap: 4 }),
+      { type: 'image', src: barsSvg(mv, CW, 36, { top: '#BF5AF2', bottom: '#5E5CE6', hot: '#FF9F0A', latest: '#DA8FFF' }), width: CW, height: 36 },
+      axisRow(mv.map((_, i) => `${i + 1}月`), CW, { vals: mv, latest: '#DA8FFF', size: 8 }),
+    ], { gap: 4, padding: [8, 10], borderRadius: 14 }),
+  ];
 }
 
 function dayKey(s) {
@@ -931,38 +979,12 @@ function monthBars(p) {
 }
 
 function buildLarge(p, r) {
-  const list = p.daily.slice(-30);
-  const vals = list.map((x) => x.v);
-  const avg = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : NaN;
-  const peak = vals.length ? Math.max(...vals) : NaN;
-  const mv = monthBars(p);
-  const lm = p.lastMonth;
   const e = errLine(r);
   return {
     type: 'widget', padding: 12, gap: 7, backgroundGradient: bg(),
     children: [
       header(p, r.cache.ts, false),
-      row([
-        glass([balanceBlock(p, 28)], { padding: [8, 10], borderRadius: 14, flex: 1, height: 110, justifyContent: 'center' }),
-        col([
-          row([statCell('sun.max.fill', C.warn, '昨日', fmt(p.yesterday), '度', mmdd(p.yesterdayKey), null, 52),
-            statCell('calendar', C.blue, '本月', fmt(p.monthUse), '度', tierText(p), tierColor(p), 52)], { gap: 6, height: 52 }),
-          row([statCell('clock.arrow.circlepath', '#BF5AF2', '上月', fmt(lm ? lm.v : NaN, 0), '度', lm && Number.isFinite(lm.cost) ? `¥${money(lm.cost)}` : '', null, 52),
-            statCell('chart.bar.fill', C.teal, '今年', fmt(p.yearUse, 0), '度', Number.isFinite(p.yearCost) ? `¥${money(p.yearCost)}` : '', null, 52)], { gap: 6, height: 52 }),
-        ], { gap: 6, flex: 1.6 }),
-      ], { gap: 6, height: 110 }),
-      glass([
-        row([icon('chart.bar.xaxis', C.brand, 10), T(`近${list.length || 30}日用电`, 10, C.text, 'semibold'), T(rangeText(list), 8, C.faint), spacer(),
-          T(`日均 ${fmt(avg)}`, 9, C.dim), legend(`峰值 ${fmt(peak)}`)], { gap: 4 }),
-        { type: 'image', src: barsSvg(vals, CW, 46), width: CW, height: 46 },
-        (() => { const d = dayLabels(list); return axisRow(d.labels, CW, { vals, weekend: d.weekend, strong: d.strong, size: 6 }); })(),
-      ], { gap: 4, padding: [8, 10], borderRadius: 14 }),
-      glass([
-        row([icon('calendar.badge.clock', '#BF5AF2', 10), T(`${new Date().getFullYear()} 年月度用电`, 10, C.text, 'semibold'), spacer(),
-          T(mv.length ? `共 ${mv.length} 个月` : '暂无', 9, C.dim)], { gap: 4 }),
-        { type: 'image', src: barsSvg(mv, CW, 36, { top: '#BF5AF2', bottom: '#5E5CE6', hot: '#FF9F0A', latest: '#DA8FFF' }), width: CW, height: 36 },
-        axisRow(mv.map((_, i) => `${i + 1}月`), CW, { vals: mv, latest: '#DA8FFF', size: 8 }),
-      ], { gap: 4, padding: [8, 10], borderRadius: 14 }),
+      ...buildLargeSections(p, r),
       e || row([icon('building.2', C.faint, 9), T(p.org || '国家电网', 8, C.faint), spacer(), T(p.billDate ? `余额截至 ${p.billDate}` : '', 8, C.faint)], { gap: 3 }),
     ],
   };
@@ -1015,7 +1037,7 @@ export default async function (ctx) {
     if (family.startsWith('accessory')) return buildLock(pList[0], r, family);
     if (family === 'systemSmall') return buildMultiSmall(pList, r);
     if (family === 'systemMedium') return buildMultiMedium(pList, r);
-    return buildMultiLarge(pList, r);
+    return buildMultiLarge(pList, r, env);
   }
   const acc = accList[0];
   const p = parse(acc, env);
