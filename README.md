@@ -12,6 +12,7 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 | 无聊按钮 | `boredom/` | 内置点子库，可自定义（纯本地，无需网络） |
 | 每日古诗 | `poem/` | 今日诗词（免费、无需 key） |
 | Spotify 三合一 | `spotify/` | 去广告 + 解锁 Premium（部分）+ DualSubs 双语歌词 |
+| 网上国网 | `sgcc/` | 网上国网 App 接口（需账号密码登录） |
 
 ## 安装（小组件通用）
 
@@ -25,6 +26,7 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
    https://raw.githubusercontent.com/xccverse/egern-widgets/main/telecom/china-telecom.yaml
    https://raw.githubusercontent.com/xccverse/egern-widgets/main/boredom/boredom-widget.yaml
    https://raw.githubusercontent.com/xccverse/egern-widgets/main/poem/poem-widget.yaml
+   https://raw.githubusercontent.com/xccverse/egern-widgets/main/sgcc/sgcc.yaml
    ```
 
    代理类模块（非小组件）：
@@ -200,6 +202,35 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 
 深浅模式自动适配。
 
+## 网上国网
+
+显示国家电网电费余额、昨日 / 本月 / 上月用电、近 30 日与月度用电柱状图。
+
+直接按网上国网 App 协议登录查询（不经过第三方网关），账号密码只存在你自己手机的 Env 里。首次在新设备登录时国网可能要求短信验证：小组件会提示，把收到的 6 位验证码填进 `SGCC_SMS` 保存后再刷新一次即可。
+
+原版来自 zhaohantao1360-hash/Hark（App 协议移植自 stevenjoezhang/hass-state-grid，MIT），改版点：阶梯电价可配（`SGCC_PRICES`）、多户号一次查全。
+
+多户号：后台一次把该账号下所有户号都查了缓存起来（只登录一次）。想同时显示多个户号就多添加几个小组件，每个小组件的 `SGCC_ACCOUNT` 填不同户号的后 4 位。
+
+### Env 配置
+
+| 变量 | 必填 | 说明 |
+|---|---|---|
+| `SGCC_USERNAME` | 是 | 网上国网 App 登录手机号 |
+| `SGCC_PASSWORD` | 是 | 网上国网 App 登录密码（没设过密码的先在 App 里设置一个） |
+| `SGCC_SMS` | 否 | 新设备短信验证码，小组件提示后再填 |
+| `SGCC_ACCOUNT` | 否 | 多户号时填要显示的户号后 4 位；留空显示第一个 |
+| `SGCC_TIERS` | 否 | 年用电阶梯分界度数，逗号分隔；北京默认 `2880,4800`，其他省份按当地标准填 |
+| `SGCC_PRICES` | 否 | 阶梯电价（元/度），逗号分隔，与分界一一对应；北京默认 `0.4883,0.5383,0.7883` |
+| `SGCC_POLICY` | 否 | 国网请求策略，默认 `DIRECT`；直连不通再填国内节点或策略组名 |
+| `SGCC_REFRESH` | 否 | 刷新间隔（小时），默认 `6`（电量数据每天更新一次，太频繁容易触发风控） |
+
+### 小组件尺寸
+
+- **大 / 中 / 小 / 锁屏**：四种尺寸都支持
+
+深浅模式自动适配。
+
 ## Spotify 三合一
 
 不是小组件，是代理模块：去广告 + 解锁 Premium（部分功能）+ DualSubs 双语歌词。
@@ -233,4 +264,5 @@ iOS 上 Egern 用的小组件脚本，开源可改。数据源都是免费接口
 - 天气 / 机场流量：无需注册、无需 key
 - 中国电信：需要中国电信手机号的登录 cookie（模块自带登录捕获，Safari 登录一次自动抓）
 - 无聊按钮 / 每日古诗：无需注册、无需 key（古诗需要网络拉取）
+- 网上国网：需要网上国网 App 的账号密码（只存自己手机 Env 里）；多户号一次查全
 - Spotify：需要 Spotify 账号登录 + Egern 安装并信任 MITM 证书
