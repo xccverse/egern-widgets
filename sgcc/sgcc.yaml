@@ -19,6 +19,10 @@ env_schema:
     name: 户号（可选）
     description: 多户号时填要显示的户号后 4 位；填 all 则一个小组件同屏显示全部户号；留空显示第一个
     default_value: ''
+  SGCC_FOCUS:
+    name: 重点户号（可选）
+    description: SGCC_ACCOUNT填all时，大尺寸下哪家显示完整详情（含曲线图），填户号后 4 位；留空默认第一家
+    default_value: ''
   SGCC_TIERS:
     name: 阶梯分界（可选）
     description: 年用电阶梯分界度数，逗号分隔；北京默认 2880,4800，其他省份按当地标准填
