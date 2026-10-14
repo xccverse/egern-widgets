@@ -26,8 +26,12 @@ env_schema:
     description: 默认 中国电信
     default_value: ''
   CT_KEEPALIVE:
-    name: 定时保活
-    description: 每 20 分钟自动拉取一次，保持登录态不掉线；填 false 关闭
+    name: 定时保活开关
+    description: 填 false 关闭保活；不填或填其他值均为开启。注意：这只是开关，保活间隔固定为 20 分钟（写在模块 schedule 里），填数字不能改间隔
+    default_value: ''
+  CT_DEBUG:
+    name: 调试模式
+    description: 填 1 在小组件标题旁显示保活诊断（上次保活时间/成功失败），排查掉线用
     default_value: ''
   CT_EXPIRE_WARN_DAYS:
     name: 过期预警天数
