@@ -8,21 +8,19 @@
  *      存入存储，小组件下次运行自动读取登录，全程无需手动复制粘贴。
  *
  * 环境变量（在模块/小组件的 Env 中配置）：
- *   CT_USERNAME             电信手机号（App 接口登录用，推荐方式，自动重登永不过期）
- *   CT_PASSWORD             电信服务密码（6位数字，与 CT_USERNAME 配合使用）
  *   CT_LOGIN_URL            电信登录地址（抓包得到的登录 URL，用于自动更新 cookie）
  *   CT_COOKIE               直接填写 cookie（与 CT_LOGIN_URL 二选一，URL 优先）
  *   CT_SHOW_USED_FLOW       'true' 显示已用流量，否则显示剩余流量
  *   CT_SHOW_USED_VOICE      'true' 显示已用语音，否则显示剩余语音（默认剩余，不受 CT_SHOW_USED_FLOW 影响）
  *   CT_SHOW_DIRECT          'false' 隐藏定向卡（3卡模式）；'true' 强制4卡；不填则自动判断
  *   CT_TITLE                小组件标题，默认 "中国电信"
+ *   CT_KEEPALIVE            定时保活开关：填 'false' 关闭，不填或填其他值均为开启（间隔固定 20 分钟，写在模块 schedule 里）
+ *   CT_EXPIRE_WARN_DAYS     cookie 超过此天数未刷新时提前通知，默认 5 天；填 0 关闭
+ *   CT_DEBUG                填 '1' 在小组件底部显示保活诊断信息（上次保活时间/成功失败）
  *
- * 数据来源（App 接口优先）：
- *   登录：https://appgologin.189.cn:9031/login/client/userLoginNormal
- *   数据：https://appfuwu.189.cn:9021/query/qryImportantData
- * 备用（网页接口）：https://e.dlife.cn/user/package_detail.do
- *                   https://e.dlife.cn/user/balance.do
- * App 接口协议参考 Cp0204/ChinaTelecomMonitor（MIT）
+ * 数据来源：https://e.dlife.cn/user/package_detail.do
+ *           https://e.dlife.cn/user/balance.do
+ * 登录方式：Safari 打开 e.dlife.cn 登录一次，脚本自动捕获 cookie（需在模块里配置 http_request + MITM）
  */
 
 const URLS = {
@@ -358,26 +356,44 @@ function showDirectCard(ctx, ds) {
   return !!ds.hasDirectFlow;
 }
 
-function headerRow(title, ds, fromCache, cookieDead) {
+function headerRow(title, ds, fromCache, cookieDead, ctx) {
   const t = ds && ds.updatedAt ? fmtTime(ds.updatedAt) : '--:--';
   // 状态灯：绿=登录有效，红=登录失效，灰=缓存（网络问题，登录态未知）
   const dotColor = cookieDead ? '#FF3B30' : fromCache ? '#8E8E93' : '#30D158';
+  const children = [
+    { type: 'image', src: 'sf-symbol:circle.fill', width: 8, height: 8, color: dotColor },
+    { type: 'text', text: title, font: { size: 'footnote', weight: 'semibold' } },
+    { type: 'spacer' },
+    {
+      type: 'text',
+      text: cookieDead ? '⚠️ 登录失效，点我重登' : fromCache ? `缓存 ${t}` : `更新 ${t}`,
+      font: { size: 'caption2' },
+      opacity: cookieDead ? 1 : 0.55,
+    },
+  ];
+  // CT_DEBUG=1 时在标题行下方显示保活诊断：上次保活时间/成败/连续失败次数
+  try {
+    if (String(ctx.env?.CT_DEBUG || '') === '1') {
+      const ka = ctx.storage.getJSON('ct_ka_last');
+      let dbg = '保活: 无记录';
+      if (ka && ka.ts) {
+        const agoMin = Math.max(0, Math.round((Date.now() - ka.ts) / 60000));
+        dbg = ka.ok ? `保活: ${agoMin}分钟前成功` : `保活: ${agoMin}分钟前失败(${(ka.err || '').slice(0, 30)})`;
+      }
+      children.push({
+        type: 'text',
+        text: dbg,
+        font: { size: 'caption2' },
+        opacity: 0.5,
+      });
+    }
+  } catch (_) {}
   return {
     type: 'stack',
     direction: 'row',
     alignItems: 'center',
     gap: 5,
-    children: [
-      { type: 'image', src: 'sf-symbol:circle.fill', width: 8, height: 8, color: dotColor },
-      { type: 'text', text: title, font: { size: 'footnote', weight: 'semibold' } },
-      { type: 'spacer' },
-      {
-        type: 'text',
-        text: cookieDead ? '⚠️ 登录失效，点我重登' : fromCache ? `缓存 ${t}` : `更新 ${t}`,
-        font: { size: 'caption2' },
-        opacity: cookieDead ? 1 : 0.55,
-      },
-    ],
+    children,
   };
 }
 
@@ -408,7 +424,7 @@ function buildSmall(title, ds, fromCache, ctx, cookieDead) {
     padding: 12,
     gap: 6,
     refreshAfter: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-    children: [headerRow(title, ds, fromCache, cookieDead), ...body],
+    children: [headerRow(title, ds, fromCache, cookieDead, ctx), ...body],
   };
 }
 
@@ -421,7 +437,7 @@ function buildMedium(title, ds, fromCache, ctx, cookieDead) {
     gap: 8,
     refreshAfter: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
     children: [
-      headerRow(title, ds, fromCache, cookieDead),
+      headerRow(title, ds, fromCache, cookieDead, ctx),
       {
         type: 'stack',
         direction: 'row',
@@ -609,9 +625,26 @@ export default async function (ctx) {
   if (!ctx.widgetFamily) {
     const keep = String(ctx.env?.CT_KEEPALIVE || '').toLowerCase();
     if (keep === 'false' || keep === '0') return { type: 'text', text: 'keepalive disabled' };
+    // 保活行车记录仪：记录每次运行的时间、成败、错误，下次掉线时有据可查
+    const ka = { ts: Date.now() };
     try {
       await loadData(ctx);
-    } catch (_) {}
+      ka.ok = true;
+      ctx.storage.set('ct_ka_fail', '0');
+    } catch (e) {
+      ka.ok = false;
+      ka.err = String((e && e.message) || e).slice(0, 120);
+      const fails = Number(ctx.storage.get('ct_ka_fail') || 0) + 1;
+      ctx.storage.set('ct_ka_fail', String(fails));
+      ka.fails = fails;
+      // 连续失败 3 次就通知，别等半夜悄悄死
+      if (fails === 3) {
+        try {
+          ctx.notify({ title: '中国电信', body: `保活连续失败 3 次（${ka.err}），登录可能已失效` });
+        } catch (_) {}
+      }
+    }
+    try { ctx.storage.setJSON('ct_ka_last', ka); } catch (_) {}
     checkExpireWarn(ctx);
     return { type: 'text', text: 'keepalive done' };
   }
