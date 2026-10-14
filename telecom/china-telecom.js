@@ -627,13 +627,9 @@ export default async function (ctx) {
     if (keep === 'false' || keep === '0') return { type: 'text', text: 'keepalive disabled' };
     // 保活行车记录仪：记录每次运行的时间、成败、错误，下次掉线时有据可查
     const ka = { ts: Date.now() };
-    try {
-      await loadData(ctx);
-      ka.ok = true;
-      ctx.storage.set('ct_ka_fail', '0');
-    } catch (e) {
+    const markKaFail = (err) => {
       ka.ok = false;
-      ka.err = String((e && e.message) || e).slice(0, 120);
+      ka.err = String(err || '').slice(0, 120);
       const fails = Number(ctx.storage.get('ct_ka_fail') || 0) + 1;
       ctx.storage.set('ct_ka_fail', String(fails));
       ka.fails = fails;
@@ -643,6 +639,19 @@ export default async function (ctx) {
           ctx.notify({ title: '中国电信', body: `保活连续失败 3 次（${ka.err}），登录可能已失效` });
         } catch (_) {}
       }
+    };
+    try {
+      const r = await loadData(ctx);
+      if (r && r.fromCache) {
+        // 保活的目的是验证 session 还活着；只能读到缓存说明没打通真接口，
+        // 必须记失败——否则 cookie 死了也显示"保活成功"，行车记录仪就撒谎了
+        markKaFail(r.cookieDead ? '登录已失效，仅读到缓存' : '网络异常，仅读到缓存');
+      } else {
+        ka.ok = true;
+        ctx.storage.set('ct_ka_fail', '0');
+      }
+    } catch (e) {
+      markKaFail((e && e.message) || e);
     }
     try { ctx.storage.setJSON('ct_ka_last', ka); } catch (_) {}
     checkExpireWarn(ctx);
