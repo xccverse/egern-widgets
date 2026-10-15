@@ -252,12 +252,14 @@ async function loadData(ctx) {
   // 1) 优先用已捕获的 cookie（从登录后的真实请求里抓的，最可靠）
   const firstCookie = envCookie || storedCookie;
   let cookieDead = false;
+  let lastErr = '';
   if (firstCookie) {
     try {
       const ds = await tryCookie(ctx, firstCookie, settings);
       return { configured, ds, fromCache: false };
     } catch (e) {
       if (e && e.authDead) cookieDead = true; // 登录失效，继续往下走
+      else lastErr = String((e && e.message) || e);
     }
   }
 
@@ -271,6 +273,7 @@ async function loadData(ctx) {
       }
     } catch (e) {
       if (e && e.authDead) cookieDead = true;
+      else lastErr = String((e && e.message) || e);
     }
   }
 
@@ -280,13 +283,13 @@ async function loadData(ctx) {
     try {
       const ds = parseTelecom(raw.detail, raw.balance, settings);
       ds.updatedAt = raw.at || ds.updatedAt;
-      return { configured, ds, fromCache: true, cookieDead };
+      return { configured, ds, fromCache: true, cookieDead, lastErr };
     } catch (_) {
       /* 解析失败就掉到旧缓存 */
     }
   }
   const cached = ctx.storage.getJSON('ct_datasource');
-  return { configured, ds: cached || null, fromCache: !!cached, cookieDead };
+  return { configured, ds: cached || null, fromCache: !!cached, cookieDead, lastErr };
 }
 
 /* ---------- 渲染层（Widget DSL） ---------- */
@@ -645,7 +648,9 @@ export default async function (ctx) {
       if (r && r.fromCache) {
         // 保活的目的是验证 session 还活着；只能读到缓存说明没打通真接口，
         // 必须记失败——否则 cookie 死了也显示"保活成功"，行车记录仪就撒谎了
-        markKaFail(r.cookieDead ? '登录已失效，仅读到缓存' : '网络异常，仅读到缓存');
+        // 带上底层真实报错（超时/连接拒绝/HTTP 状态），下次排查不用猜
+        const detail = r.lastErr ? `(${r.lastErr.slice(0, 60)})` : '';
+        markKaFail(r.cookieDead ? '登录已失效，仅读到缓存' : `网络异常，仅读到缓存${detail}`);
       } else {
         ka.ok = true;
         ctx.storage.set('ct_ka_fail', '0');
