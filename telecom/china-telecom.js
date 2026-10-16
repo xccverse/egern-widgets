@@ -117,9 +117,12 @@ async function fetchJson(ctx, url, cookie) {
     credentials: 'omit',
   });
   if (!resp || resp.status !== 200) {
-    const err = new Error(`HTTP ${resp ? resp.status : 'no-response'}: ${url}`);
-    // 401/403 基本可以确定是登录态没了
-    if (resp && (resp.status === 401 || resp.status === 403)) err.authDead = true;
+    // 400 也视为登录失效：e.dlife.cn 用 400（而非 401）拒绝过期会话
+    // 附带一小段响应体，方便确认是会话过期还是其他问题
+    let snippet = '';
+    try { const t = await resp.text(); snippet = String(t || '').replace(/\s+/g, ' ').slice(0, 120); } catch (_) {}
+    const err = new Error(`HTTP ${resp ? resp.status : 'no-response'}: ${url}${snippet ? ` | ${snippet}` : ''}`);
+    if (resp && (resp.status === 401 || resp.status === 403 || resp.status === 400)) err.authDead = true;
     throw err;
   }
   let data;
